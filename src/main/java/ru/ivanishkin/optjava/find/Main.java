@@ -31,7 +31,7 @@ public class Main {
 
         CommandLine cmd = new BasicParser().parse(options, args);
         if (cmd.hasOption("help")) {
-            System.out.println("Usage: java -jar ./find-1.0-SNAPSHOT-jar-with-dependencies.jar [--name <fileName>] [--data \"<text>\"] <folder|file>");
+            System.out.println("Usage: java -jar ./find-1.0-SNAPSHOT.jar [--name <fileName>] [--data \"<text>\"] <folder|file>");
             return;
         }
         if (cmd.hasOption("name")) {
