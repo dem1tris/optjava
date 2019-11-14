@@ -21,7 +21,7 @@ class Position {
         this.patternLen = patternLen;
         this.value = initial;
         this.bufSize = bufSize;
-        this.increment = bufSize - (patternLen - 10);
+        this.increment = bufSize - (patternLen - 1);
     }
 
     public long next() {
