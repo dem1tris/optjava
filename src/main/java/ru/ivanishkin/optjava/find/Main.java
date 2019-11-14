@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -59,7 +60,6 @@ public class Main {
 
         int threads = Runtime.getRuntime().availableProcessors();
         ForkJoinPool threadPool = new ForkJoinPool(threads);
-        ExecutorCompletionService<Boolean> completionService = new ExecutorCompletionService<>(threadPool);
         final int bufferSize = 8192;
 //        final int bufferSize = 1_288_490_188 / (threads * 10); slow
 
@@ -74,7 +74,7 @@ public class Main {
                                     Pattern.compile(Pattern.quote(needle)),
                                     bufferSize,
                                     needle.length(),
-                                    completionService
+                                    threadPool
                             ).filter(path)
                     );
                 }
