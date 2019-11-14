@@ -8,11 +8,8 @@ import org.apache.commons.cli.ParseException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ForkJoinTask;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -60,30 +57,28 @@ public class Main {
 
         int threads = Runtime.getRuntime().availableProcessors();
         ForkJoinPool threadPool = new ForkJoinPool(threads);
-        final int bufferSize = 8192;
+        final int bufferSize = 8192 * 1024;
 //        final int bufferSize = 1_288_490_188 / (threads * 10); slow
 
-        List<Path> found = threadPool.submit(() -> {
-            try {
-                Stream<Path> files = Files.walk(Path.of(startPath)).parallel();
-                if (!name.equals("")) {
-                    files = files.filter(path -> path.toString().contains(name));
-                }
-                if (!needle.equals("")) {
-                    files = files.filter(path -> new FileContentFilter(
-                                    Pattern.compile(Pattern.quote(needle)),
-                                    bufferSize,
-                                    needle.length(),
-                                    threadPool
-                            ).filter(path)
-                    );
-                }
-                return files.collect(Collectors.toList());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }).get();
 
-        found.forEach(System.out::println);
+        try {
+            Stream<Path> files = Files.walk(Path.of(startPath)).parallel();
+            if (!name.equals("")) {
+                files = files.filter(path -> path.toString().contains(name));
+            }
+            if (!needle.equals("")) {
+                files = files.filter(path -> new FileContentFilter(
+                                Pattern.compile(Pattern.quote(needle)),
+                                bufferSize,
+                                needle.length(),
+                                threadPool
+                        ).filter(path)
+                );
+            }
+            files.forEach(System.out::println);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
     }
 }

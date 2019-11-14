@@ -4,8 +4,6 @@ import java.io.*;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,17 +21,27 @@ class Position {
         this.patternLen = patternLen;
         this.value = initial;
         this.bufSize = bufSize;
-        this.increment = bufSize - (patternLen - 1);
+        this.increment = bufSize - (patternLen - 10);
     }
 
     public long next() {
         if (value + bufSize >= fileLen) {
-            return -1;
+            if (value > 0) {
+                return -1;
+            } else {
+                value++;
+                return 0;
+            }
         }
         if (value + increment + bufSize < fileLen) {
-            return value + increment;
+            return value += increment;
         } else {
-            return fileLen - bufSize;
+            System.out.println("value = " + value);
+            System.out.println("fileLen = " + fileLen);
+            System.out.println("bufSize = " + bufSize);
+            System.out.println("increment = " + increment);
+            value = fileLen - bufSize;
+            return value;
         }
     }
 
@@ -45,20 +53,20 @@ class Position {
 public class FileContentFilter {
     private final Pattern pattern;
     private final int bufferSize;
-    private final int needleLen;
+    private final int patternLen;
     private final ForkJoinPool forkJoinPool;
     private char[] buffer;
 
 
     public FileContentFilter(final Pattern pattern,
                              final int bufferSize,
-                             final int needleLen,
+                             final int patternLen,
                              final ForkJoinPool forkJoinPool) {
         this.pattern = pattern;
         this.bufferSize = bufferSize;
-        this.needleLen = needleLen;
+        this.patternLen = patternLen;
         this.forkJoinPool = forkJoinPool;
-        if (bufferSize < 2 * needleLen) {
+        if (bufferSize < 2 * patternLen) {
             throw new IllegalArgumentException("bufferSize < 2 * needleLen");
         }
     }
@@ -68,36 +76,49 @@ public class FileContentFilter {
         if (file.isDirectory()) {
             return false;
         }
-        file.length();
-        final FileChannel channel;
-        MappedByteBuffer mappedBuffer;
+        long fileLen = file.length();
 
 // when finished
 //        channel.close();
+        MappedByteBuffer mappedBuffer;
+        byte[] buf;
         BufferedReader in;
         buffer = new char[bufferSize];
         int read = 0;
-        try {
-            channel = new FileInputStream(file).getChannel();
-            mappedBuffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, bufferSize);
+        long from = 0;
+        int availableSize = bufferSize <= fileLen - from ? bufferSize : (int) (fileLen - from);
+        try (FileChannel channel = new RandomAccessFile(file, "r").getChannel()) {
+            mappedBuffer = channel.map(FileChannel.MapMode.READ_ONLY, from, availableSize);
+            buf = new byte[availableSize];
             int runningTasks = 0;
-            CompletionService<Boolean> completionService = new ExecutorCompletionService<Boolean>(forkJoinPool);
-            Position pos = new Position(file.length(), needleLen, 0, bufferSize);
+            CompletionService<Boolean> completionService = new ExecutorCompletionService<>(forkJoinPool);
+            Position pos = new Position(fileLen, patternLen, 0, bufferSize);
 
 //            in = new BufferedReader(new InputStreamReader(new FileInputStream(file)), bufferSize * 2);
 //            read = in.read(buffer, 0, bufferSize);
             boolean continueReading = true;
             while (true) {
-                if (continueReading && runningTasks < forkJoinPool.getParallelism()) {
-                    Matcher matcher = pattern.matcher(mappedBuffer.asCharBuffer().toString());
-                    completionService.submit(matcher::find);
-                    runningTasks++;
-                    long from = pos.next();
+//                if (continueReading && runningTasks < forkJoinPool.getParallelism()) {
+                if (runningTasks < forkJoinPool.getParallelism()) {
+                    mappedBuffer.get(buf, 0, availableSize);
+                    String input = new String(buf);
+//                    System.out.println("input = " + input.substring(0, Math.min(100, input.length())));
+                    Matcher matcher = pattern.matcher(input);
+                    if (matcher.find()) {
+                        return true;
+                    }
+//                    completionService.submit(matcher::find);c
+//                    runningTasks++;
+                    from = pos.next();
+//                    System.out.println("from = " + from);
                     if (from == -1) {
                         continueReading = false;
-                        continue;
+                        return false; //!!!!!!!!!!!!!!!!!!!!!!!
+//                        continue;
                     }
-                    mappedBuffer = channel.map(FileChannel.MapMode.READ_ONLY, from, bufferSize);
+                    availableSize = bufferSize <= fileLen - from ? bufferSize : (int) (fileLen - from);
+                    mappedBuffer = channel.map(FileChannel.MapMode.READ_ONLY, from, availableSize);
+                    buf = new byte[availableSize];
                 } else {
                     Future<Boolean> future = completionService.take();
                     while (future != null) {
