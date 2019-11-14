@@ -36,10 +36,6 @@ class Position {
         if (value + increment + bufSize < fileLen) {
             return value += increment;
         } else {
-            System.out.println("value = " + value);
-            System.out.println("fileLen = " + fileLen);
-            System.out.println("bufSize = " + bufSize);
-            System.out.println("increment = " + increment);
             value = fileLen - bufSize;
             return value;
         }
@@ -98,23 +94,22 @@ public class FileContentFilter {
 //            read = in.read(buffer, 0, bufferSize);
             boolean continueReading = true;
             while (true) {
-//                if (continueReading && runningTasks < forkJoinPool.getParallelism()) {
-                if (runningTasks < forkJoinPool.getParallelism()) {
+                if (continueReading && runningTasks < forkJoinPool.getParallelism()) {
+//                if (runningTasks < forkJoinPool.getParallelism()) {
                     mappedBuffer.get(buf, 0, availableSize);
                     String input = new String(buf);
 //                    System.out.println("input = " + input.substring(0, Math.min(100, input.length())));
                     Matcher matcher = pattern.matcher(input);
-                    if (matcher.find()) {
-                        return true;
-                    }
-//                    completionService.submit(matcher::find);c
-//                    runningTasks++;
+//                    if (matcher.find()) {
+//                        return true;
+//                    }
+                    completionService.submit(matcher::find);
+                    runningTasks++;
                     from = pos.next();
 //                    System.out.println("from = " + from);
                     if (from == -1) {
                         continueReading = false;
-                        return false; //!!!!!!!!!!!!!!!!!!!!!!!
-//                        continue;
+                        continue;
                     }
                     availableSize = bufferSize <= fileLen - from ? bufferSize : (int) (fileLen - from);
                     mappedBuffer = channel.map(FileChannel.MapMode.READ_ONLY, from, availableSize);

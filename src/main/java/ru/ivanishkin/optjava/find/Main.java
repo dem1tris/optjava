@@ -50,15 +50,16 @@ public class Main {
         } else {
             startPath = ".";
         }
-        System.out.println("name = " + name);
-        System.out.println("needle = " + needle);
-        System.out.println("startPath = " + startPath);
+//        System.out.println("name = " + name);
+//        System.out.println("needle = " + needle);
+//        System.out.println("startPath = " + startPath);
 
 
         int threads = Runtime.getRuntime().availableProcessors();
         ForkJoinPool threadPool = new ForkJoinPool(threads);
-        final int bufferSize = 8192 * 1024;
-//        final int bufferSize = 1_288_490_188 / (threads * 10); slow
+//        final int bufferSize = 8192 * 1024 * 8;
+        final int bufferSize = 268_435_456 / (threads * 2);
+
 
 
         try {
